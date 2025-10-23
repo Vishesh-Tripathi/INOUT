@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const Login = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -19,10 +21,12 @@ const Login = () => {
 
     const result = await login(formData.username, formData.password);
     
-    if (!result.success) {
+    if (result.success) {
+      // Redirect to dashboard after successful login
+      navigate('/dashboard');
+    } else {
       toast.error(result.message || 'Login failed');
     }
-    // Success toast is handled in AuthContext
 
     setIsLoading(false);
   };
@@ -101,9 +105,15 @@ const Login = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mb-4">
               Demo credentials: <strong>admin / admin123</strong>
             </p>
+            <button
+              onClick={() => navigate('/')}
+              className="text-indigo-600 hover:text-indigo-700 text-sm font-medium transition-colors"
+            >
+              ← Back to Scanner
+            </button>
           </div>
         </div>
       </div>

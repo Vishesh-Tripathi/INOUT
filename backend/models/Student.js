@@ -43,7 +43,7 @@ const studentSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-studentSchema.index({ student_id: 1 });
+// Note: student_id index is automatically created due to unique: true
 studentSchema.index({ status: 1 });
 studentSchema.index({ department: 1 });
 studentSchema.index({ name: 1 });

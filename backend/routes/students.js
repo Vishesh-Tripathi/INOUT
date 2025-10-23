@@ -13,31 +13,30 @@ import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticateToken);
-
-// Get all students
+// Public routes (no authentication required for scanner functionality)
+// Get all students - needed for scanner to work
 router.get('/', getAllStudents);
 
-// Get students by status (in/out)
-router.get('/status/:status', getStudentsByStatus);
-
-// Get specific student
-router.get('/:studentId', getStudent);
-
-// Create single student
-router.post('/', requireRole(['admin']), createStudent);
-
-// Create multiple students (bulk import)
-router.post('/bulk', requireRole(['admin']), createMultipleStudents);
-
-// Update student
-router.put('/:studentId', requireRole(['admin']), updateStudent);
-
-// Delete student
-router.delete('/:studentId', requireRole(['admin']), deleteStudent);
-
-// Toggle student status (for scanning)
+// Toggle student status (for scanning) - public access for scanner
 router.patch('/:studentId/toggle', toggleStudentStatus);
+
+// Protected routes (require authentication)
+// Get students by status (in/out) - admin only
+router.get('/status/:status', authenticateToken, getStudentsByStatus);
+
+// Get specific student - admin only
+router.get('/:studentId', authenticateToken, getStudent);
+
+// Create single student - admin only
+router.post('/', authenticateToken, requireRole(['admin']), createStudent);
+
+// Create multiple students (bulk import) - admin only
+router.post('/bulk', authenticateToken, requireRole(['admin']), createMultipleStudents);
+
+// Update student - admin only
+router.put('/:studentId', authenticateToken, requireRole(['admin']), updateStudent);
+
+// Delete student - admin only
+router.delete('/:studentId', authenticateToken, requireRole(['admin']), deleteStudent);
 
 export default router;

@@ -24,14 +24,16 @@ class ApiService {
   }
 
   // Helper method to handle responses
-  async handleResponse(response) {
+  async handleResponse(response, isPublicRoute = false) {
     const data = await response.json();
     
     if (!response.ok) {
-      if (response.status === 401) {
-        // Token expired or invalid
+      if (response.status === 401 && !isPublicRoute) {
+        // Token expired or invalid - only redirect if not a public route
         this.clearToken();
-        window.location.href = '/login';
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
       }
       throw new Error(data.message || 'An error occurred');
     }
@@ -122,7 +124,7 @@ class ApiService {
       headers: this.getHeaders(),
     });
 
-    return this.handleResponse(response);
+    return this.handleResponse(response, true); // Mark as public route
   }
 
   async getStudent(studentId) {
@@ -186,7 +188,7 @@ class ApiService {
       headers: this.getHeaders(),
     });
 
-    return this.handleResponse(response);
+    return this.handleResponse(response, true); // Mark as public route
   }
 
   // Logs API methods

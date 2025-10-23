@@ -8,18 +8,17 @@ import Navigation from "./components/Navigation";
 import ScannerInterface from "./components/ScannerInterface";
 import AdminDashboard from "./components/AdminDashboard";
 import StudentManagement from "./components/StudentManagement";
+import Login from "./components/Login";
 
-// Protected content component that includes DataProvider
-const ProtectedContent = () => {
+// Admin layout component that includes authentication and navigation
+const AdminLayout = ({ children }) => {
   return (
-    <DataProvider>
-      <Navigation />
-      <Routes>
-        <Route path="/" element={<ScannerInterface />} />
-        <Route path="/dashboard" element={<AdminDashboard />} />
-        <Route path="/students" element={<StudentManagement />} />
-      </Routes>
-    </DataProvider>
+    <ProtectedRoute>
+      <DataProvider>
+        <Navigation />
+        {children}
+      </DataProvider>
+    </ProtectedRoute>
   );
 };
 
@@ -39,9 +38,27 @@ function App() {
             }}
           />
           
-          <ProtectedRoute>
-            <ProtectedContent />
-          </ProtectedRoute>
+          <Routes>
+            {/* Public routes - No DataProvider wrapper */}
+            <Route path="/" element={
+              <DataProvider>
+                <ScannerInterface />
+              </DataProvider>
+            } />
+            <Route path="/login" element={<Login />} />
+            
+            {/* Protected admin routes */}
+            <Route path="/dashboard" element={
+              <AdminLayout>
+                <AdminDashboard />
+              </AdminLayout>
+            } />
+            <Route path="/students" element={
+              <AdminLayout>
+                <StudentManagement />
+              </AdminLayout>
+            } />
+          </Routes>
         </div>
       </Router>
     </AuthProvider>

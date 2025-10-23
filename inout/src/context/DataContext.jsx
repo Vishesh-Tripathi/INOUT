@@ -29,21 +29,18 @@ export const DataProvider = ({ children }) => {
   }, []);
 
   const loadInitialData = async () => {
-    // Check if we have a valid token before making API calls
-    const token = apiService.getToken();
-    if (!token) {
-      console.warn('No authentication token found, skipping data load');
-      return;
-    }
-
     setLoading(true);
     setError(null);
     
     try {
-      await Promise.all([
-        loadStudents(),
-        loadLogs()
-      ]);
+      // Always try to load students for scanner functionality
+      await loadStudents();
+      
+      // Only try to load logs if we have authentication
+      const token = apiService.getToken();
+      if (token) {
+        await loadLogs();
+      }
     } catch (error) {
       console.error('Failed to load initial data:', error);
       setError(error.message);
@@ -55,66 +52,51 @@ export const DataProvider = ({ children }) => {
 
   const loadStudents = async () => {
     try {
-      // Ensure we have a valid token
-      const token = apiService.getToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-
       const response = await apiService.getAllStudents();
       if (response.success) {
         setStudents(response.data.students || []);
+        console.log('Students loaded:', response.data.students?.length || 0);
       } else {
         throw new Error(response.message || 'Failed to load students');
       }
     } catch (error) {
       console.error('Failed to load students:', error);
       
-      // If it's an authentication error, don't fall back to localStorage
-      if (error.message.includes('authentication') || error.message.includes('token')) {
-        throw error;
-      }
-      
-      // Fall back to localStorage for other errors
+      // Fall back to localStorage for errors
       const storedStudents = localStorage.getItem('students');
       if (storedStudents) {
-        setStudents(JSON.parse(storedStudents));
+        const parsedStudents = JSON.parse(storedStudents);
+        setStudents(parsedStudents);
+        console.log('Loaded students from localStorage:', parsedStudents.length);
       } else {
         // Set empty array if no fallback data
         setStudents([]);
+        console.log('No students found, setting empty array');
       }
     }
   };
-
   const loadLogs = async () => {
     try {
-      // Ensure we have a valid token
-      const token = apiService.getToken();
-      if (!token) {
-        throw new Error('No authentication token available');
-      }
-
       const response = await apiService.getAllLogs(100, 0);
       if (response.success) {
         setLogs(response.data.logs || []);
+        console.log('Logs loaded:', response.data.logs?.length || 0);
       } else {
         throw new Error(response.message || 'Failed to load logs');
       }
     } catch (error) {
       console.error('Failed to load logs:', error);
       
-      // If it's an authentication error, don't fall back to localStorage
-      if (error.message.includes('authentication') || error.message.includes('token')) {
-        throw error;
-      }
-      
-      // Fall back to localStorage for other errors
+      // Fall back to localStorage for errors
       const storedLogs = localStorage.getItem('logs');
       if (storedLogs) {
-        setLogs(JSON.parse(storedLogs));
+        const parsedLogs = JSON.parse(storedLogs);
+        setLogs(parsedLogs);
+        console.log('Loaded logs from localStorage:', parsedLogs.length);
       } else {
         // Set empty array if no fallback data
         setLogs([]);
+        console.log('No logs found, setting empty array');
       }
     }
   };

@@ -108,7 +108,14 @@ export const DataProvider = ({ children }) => {
         name: studentData.name,
         department: studentData.department,
         email: studentData.email,
-        phone: studentData.phone
+        phone: studentData.phone,
+        address: studentData.address,
+        city: studentData.city,
+        state: studentData.state,
+        pin: studentData.pin,
+        country: studentData.country,
+        semester: studentData.semester,
+        imageUrl: studentData.imageUrl
       });
 
       if (response.success) {
@@ -131,7 +138,14 @@ export const DataProvider = ({ children }) => {
         name: student.name,
         department: student.department,
         email: student.email,
-        phone: student.phone
+        phone: student.phone,
+        address: student.address,
+        city: student.city,
+        state: student.state,
+        pin: student.pin,
+        country: student.country,
+        semester: student.semester,
+        imageUrl: student.imageUrl
       }));
 
       const response = await apiService.createMultipleStudents(studentsData);

@@ -36,26 +36,7 @@ app.use(compression()); // Compress responses
 app.use(limiter); // Rate limiting
 
 // CORS configuration
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:5173',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Origin',
-    'X-Requested-With',
-    'Content-Type',
-    'Accept',
-    'Authorization',
-    'Cache-Control',
-    'Pragma'
-  ],
-  exposedHeaders: ['Authorization'],
-  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
-}));
+app.use(cors());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

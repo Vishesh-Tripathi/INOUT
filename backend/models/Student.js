@@ -33,6 +33,55 @@ const studentSchema = new mongoose.Schema({
     maxlength: [15, 'Phone number cannot exceed 15 characters'],
     default: null
   },
+  address: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Address cannot exceed 200 characters'],
+    default: null
+  },
+  city: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'City name cannot exceed 50 characters'],
+    default: null
+  },
+  state: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'State name cannot exceed 50 characters'],
+    default: null
+  },
+  pin: {
+    type: String,
+    trim: true,
+    maxlength: [10, 'PIN code cannot exceed 10 characters'],
+    default: null
+  },
+  country: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Country name cannot exceed 50 characters'],
+    default: 'India'
+  },
+  semester: {
+    type: Number,
+    min: [1, 'Semester must be at least 1'],
+    max: [12, 'Semester cannot exceed 12'],
+    default: null
+  },
+  imageUrl: {
+    type: String,
+    trim: true,
+    default: null,
+    // validate: {
+    //   validator: function(v) {
+    //     if (!v) return true; // Allow null/empty values
+    //     // Basic URL validation
+    //     return /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(v);
+    //   },
+    //   message: 'Image URL must be a valid HTTP/HTTPS URL ending with a supported image format (jpg, jpeg, png, gif, webp)'
+    // }
+  },
   status: {
     type: String,
     enum: ['in', 'out'],
@@ -47,6 +96,8 @@ const studentSchema = new mongoose.Schema({
 studentSchema.index({ status: 1 });
 studentSchema.index({ department: 1 });
 studentSchema.index({ name: 1 });
+studentSchema.index({ semester: 1 });
+studentSchema.index({ city: 1, state: 1 });
 
 // Instance methods
 studentSchema.methods.toggleStatus = function() {
@@ -77,6 +128,17 @@ studentSchema.statics.findByDepartment = function(department) {
   return this.find({ department: new RegExp(department, 'i') }).sort({ name: 1 });
 };
 
+studentSchema.statics.findBySemester = function(semester) {
+  return this.find({ semester: semester }).sort({ name: 1 });
+};
+
+studentSchema.statics.findByLocation = function(city, state) {
+  const query = {};
+  if (city) query.city = new RegExp(city, 'i');
+  if (state) query.state = new RegExp(state, 'i');
+  return this.find(query).sort({ name: 1 });
+};
+
 studentSchema.statics.getStudentsInside = function() {
   return this.find({ status: 'in' }).sort({ updatedAt: -1 });
 };
@@ -94,6 +156,13 @@ studentSchema.statics.createMany = async function(studentsData) {
       department: student.department,
       email: student.email || null,
       phone: student.phone || null,
+      address: student.address || null,
+      city: student.city || null,
+      state: student.state || null,
+      pin: student.pin || null,
+      country: student.country || 'India',
+      semester: student.semester || null,
+      imageUrl: student.imageUrl || null,
       status: 'out'
     }));
 

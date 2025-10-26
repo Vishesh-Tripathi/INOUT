@@ -34,7 +34,20 @@ export const getStudent = asyncHandler(async (req, res) => {
 });
 
 export const createStudent = asyncHandler(async (req, res) => {
-  const { student_id, name, department, email, phone } = req.body;
+  const { 
+    student_id, 
+    name, 
+    department, 
+    email, 
+    phone, 
+    address, 
+    city, 
+    state, 
+    pin, 
+    country, 
+    semester, 
+    imageUrl 
+  } = req.body;
 
   // Validate required fields
   if (!student_id || !name || !department) {
@@ -58,7 +71,14 @@ export const createStudent = asyncHandler(async (req, res) => {
     name,
     department,
     email,
-    phone
+    phone,
+    address,
+    city,
+    state,
+    pin,
+    country,
+    semester,
+    imageUrl
   });
 
   res.status(201).json({
@@ -113,7 +133,19 @@ export const createMultipleStudents = asyncHandler(async (req, res) => {
 
 export const updateStudent = asyncHandler(async (req, res) => {
   const { studentId } = req.params;
-  const { name, department, email, phone } = req.body;
+  const { 
+    name, 
+    department, 
+    email, 
+    phone, 
+    address, 
+    city, 
+    state, 
+    pin, 
+    country, 
+    semester, 
+    imageUrl 
+  } = req.body;
 
   const student = await Student.findByStudentId(studentId);
   
@@ -129,6 +161,13 @@ export const updateStudent = asyncHandler(async (req, res) => {
   if (department) student.department = department;
   if (email !== undefined) student.email = email;
   if (phone !== undefined) student.phone = phone;
+  if (address !== undefined) student.address = address;
+  if (city !== undefined) student.city = city;
+  if (state !== undefined) student.state = state;
+  if (pin !== undefined) student.pin = pin;
+  if (country !== undefined) student.country = country;
+  if (semester !== undefined) student.semester = semester;
+  if (imageUrl !== undefined) student.imageUrl = imageUrl;
 
   await student.save();
 
@@ -179,6 +218,51 @@ export const getStudentsByStatus = asyncHandler(async (req, res) => {
       students,
       count: students.length,
       status
+    }
+  });
+});
+
+export const getStudentsBySemester = asyncHandler(async (req, res) => {
+  const { semester } = req.params;
+
+  const semesterNum = parseInt(semester);
+  if (isNaN(semesterNum) || semesterNum < 1 || semesterNum > 12) {
+    return res.status(400).json({
+      success: false,
+      message: 'Semester must be a number between 1 and 12'
+    });
+  }
+
+  const students = await Student.findBySemester(semesterNum);
+
+  res.json({
+    success: true,
+    data: {
+      students,
+      count: students.length,
+      semester: semesterNum
+    }
+  });
+});
+
+export const getStudentsByLocation = asyncHandler(async (req, res) => {
+  const { city, state } = req.query;
+
+  if (!city && !state) {
+    return res.status(400).json({
+      success: false,
+      message: 'At least one of city or state must be provided'
+    });
+  }
+
+  const students = await Student.findByLocation(city, state);
+
+  res.json({
+    success: true,
+    data: {
+      students,
+      count: students.length,
+      filters: { city, state }
     }
   });
 });

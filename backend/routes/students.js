@@ -7,6 +7,8 @@ import {
   updateStudent,
   deleteStudent,
   getStudentsByStatus,
+  getStudentsBySemester,
+  getStudentsByLocation,
   toggleStudentStatus
 } from '../controllers/studentController.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
@@ -23,6 +25,12 @@ router.patch('/:studentId/toggle', toggleStudentStatus);
 // Protected routes (require authentication)
 // Get students by status (in/out) - admin only
 router.get('/status/:status', authenticateToken, getStudentsByStatus);
+
+// Get students by semester - admin only
+router.get('/semester/:semester', authenticateToken, getStudentsBySemester);
+
+// Get students by location (city/state) - admin only
+router.get('/location', authenticateToken, getStudentsByLocation);
 
 // Get specific student - admin only
 router.get('/:studentId', authenticateToken, getStudent);

@@ -50,8 +50,8 @@ const AdminDashboard = () => {
     }
 
     const csvData = filteredLogs.map(log => ({
-      'Student ID': log.studentId,
-      'Student Name': log.studentName,
+      'Student ID': log.student_id,
+      'Student Name': log.student_name,
       'Department': log.department,
       'Action': log.action.toUpperCase(),
       'Timestamp': new Date(log.timestamp).toLocaleString(),
@@ -106,11 +106,12 @@ const AdminDashboard = () => {
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleString();
   };
+  console.log(students)
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      {/* <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
@@ -122,7 +123,7 @@ const AdminDashboard = () => {
             </button>
           </div>
         </div>
-      </header>
+      </header> */}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Navigation Tabs */}
@@ -252,8 +253,8 @@ const AdminDashboard = () => {
                         log.action === 'in' ? 'bg-green-400' : 'bg-red-400'
                       }`}></div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{log.studentName}</p>
-                        <p className="text-xs text-gray-500">ID: {log.studentId} • {log.department}</p>
+                        <p className="text-sm font-medium text-gray-900">{log.student_name}</p>
+                        <p className="text-xs text-gray-500">ID: {log.student_id} • {log.department}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -274,62 +275,70 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Students Tab */}
-        {activeTab === 'students' && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">All Students</h3>
+        /* Students Tab */
+          {activeTab === 'students' && (
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">All Students</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {students.map((student) => (
+                <tr key={student.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+              <img 
+                src={student.imageUrl || '/default-avatar.png'} 
+                alt={student.name}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+              <div className="text-sm font-medium text-gray-900">{student.name}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+              <div className="text-sm text-gray-900">{student.student_id}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+              <div className="text-sm text-gray-900">{student.department}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                student.status === 'in' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-gray-100 text-gray-800'
+              }`}>
+                {student.status === 'in' ? 'Inside' : 'Outside'}
+              </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              <div>{student.email}</div>
+              <div>{student.phone}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+                </table>
+                {students.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No students found</p>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {students.map((student) => (
-                    <tr key={student.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{student.name}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{student.studentId}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{student.department}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          student.status === 'in' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {student.status === 'in' ? 'Inside' : 'Outside'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div>{student.email}</div>
-                        <div>{student.phone}</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {students.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No students found</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Logs Tab */}
+          {/* Logs Tab */}
         {activeTab === 'logs' && (
           <div>
             {/* Filters and Export */}
@@ -395,10 +404,10 @@ const AdminDashboard = () => {
                     {filteredLogs.map((log) => (
                       <tr key={log.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{log.studentName}</div>
+                          <div className="text-sm font-medium text-gray-900">{log.student_name}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{log.studentId}</div>
+                          <div className="text-sm text-gray-900">{log.student_id}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{log.department}</div>

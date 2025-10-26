@@ -182,6 +182,26 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async getStudentsBySemester(semester) {
+    const response = await fetch(`${this.baseURL}/students/semester/${semester}`, {
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async getStudentsByLocation(city, state) {
+    const params = new URLSearchParams();
+    if (city) params.append('city', city);
+    if (state) params.append('state', state);
+    
+    const response = await fetch(`${this.baseURL}/students/location?${params.toString()}`, {
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
   async toggleStudentStatus(studentId) {
     const response = await fetch(`${this.baseURL}/students/${studentId}/toggle`, {
       method: 'PATCH',

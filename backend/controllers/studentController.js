@@ -1,5 +1,6 @@
 import Student from '../models/Student.js';
 import Log from '../models/Log.js';
+import s3Service from '../services/s3Service.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 export const getAllStudents = asyncHandler(async (req, res) => {
@@ -45,8 +46,7 @@ export const createStudent = asyncHandler(async (req, res) => {
     state, 
     pin, 
     country, 
-    semester, 
-    imageUrl 
+    semester
   } = req.body;
 
   // Validate required fields
@@ -65,6 +65,37 @@ export const createStudent = asyncHandler(async (req, res) => {
       message: 'Student with this ID already exists'
     });
   }
+
+  let imageUrl = req.body.imageUrl || null; // Get imageUrl from form data if provided
+  
+  console.log('=== Image handling in createStudent ===');
+  console.log('req.file exists:', !!req.file);
+  console.log('req.body.imageUrl:', req.body.imageUrl);
+  console.log('Initial imageUrl:', imageUrl);
+
+  // Handle image upload if file is provided (this will override the form imageUrl)
+  if (req.file) {
+    try {
+      console.log('Uploading file to S3...');
+      const uploadResult = await s3Service.uploadFile(
+        req.file.buffer,
+        `${student_id}_profile_${req.file.originalname}`,
+        req.file.mimetype,
+        'student-profiles'
+      );
+      imageUrl = uploadResult.url;
+      console.log('Upload successful, imageUrl set to:', imageUrl);
+    } catch (error) {
+      console.error('Error uploading student image:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload student image',
+        error: error.message
+      });
+    }
+  }
+  
+  console.log('Final imageUrl before saving:', imageUrl);
 
   const student = await Student.create({
     student_id,
@@ -143,8 +174,7 @@ export const updateStudent = asyncHandler(async (req, res) => {
     state, 
     pin, 
     country, 
-    semester, 
-    imageUrl 
+    semester
   } = req.body;
 
   const student = await Student.findByStudentId(studentId);
@@ -156,7 +186,45 @@ export const updateStudent = asyncHandler(async (req, res) => {
     });
   }
 
-  // Update fields
+  // Handle image upload if file is provided
+  if (req.file) {
+    try {
+      // Delete old image if it exists
+      if (student.imageUrl) {
+        // Extract S3 key from URL if it's an S3 URL
+        const urlParts = student.imageUrl.split('/');
+        if (urlParts.length > 3 && student.imageUrl.includes('s3')) {
+          const key = urlParts.slice(3).join('/');
+          try {
+            await s3Service.deleteFile(key);
+          } catch (error) {
+            console.warn('Failed to delete old image:', error.message);
+          }
+        }
+      }
+
+      // Upload new image
+      const uploadResult = await s3Service.uploadFile(
+        req.file.buffer,
+        `${studentId}_profile_${req.file.originalname}`,
+        req.file.mimetype,
+        'student-profiles'
+      );
+      student.imageUrl = uploadResult.url;
+    } catch (error) {
+      console.error('Error uploading student image:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload student image',
+        error: error.message
+      });
+    }
+  } else if (req.body.imageUrl !== undefined) {
+    // Handle imageUrl from form data (legacy URL field)
+    student.imageUrl = req.body.imageUrl;
+  }
+
+  // Update other fields
   if (name) student.name = name;
   if (department) student.department = department;
   if (email !== undefined) student.email = email;
@@ -167,7 +235,6 @@ export const updateStudent = asyncHandler(async (req, res) => {
   if (pin !== undefined) student.pin = pin;
   if (country !== undefined) student.country = country;
   if (semester !== undefined) student.semester = semester;
-  if (imageUrl !== undefined) student.imageUrl = imageUrl;
 
   await student.save();
 
@@ -294,6 +361,196 @@ export const toggleStudentStatus = asyncHandler(async (req, res) => {
       student,
       logEntry,
       previousStatus: oldStatus
+    }
+  });
+});
+
+export const uploadStudentImage = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+
+  if (!req.file) {
+    return res.status(400).json({
+      success: false,
+      message: 'No image file provided'
+    });
+  }
+
+  const student = await Student.findByStudentId(studentId);
+  if (!student) {
+    return res.status(404).json({
+      success: false,
+      message: 'Student not found'
+    });
+  }
+
+  try {
+    // Delete old image if it exists
+    if (student.imageUrl) {
+      const urlParts = student.imageUrl.split('/');
+      if (urlParts.length > 3 && student.imageUrl.includes('s3')) {
+        const key = urlParts.slice(3).join('/');
+        try {
+          await s3Service.deleteFile(key);
+        } catch (error) {
+          console.warn('Failed to delete old image:', error.message);
+        }
+      }
+    }
+
+    // Upload new image
+    const uploadResult = await s3Service.uploadFile(
+      req.file.buffer,
+      `${studentId}_profile_${req.file.originalname}`,
+      req.file.mimetype,
+      'student-profiles'
+    );
+
+    // Update student record
+    student.imageUrl = uploadResult.url;
+    await student.save();
+
+    res.json({
+      success: true,
+      message: 'Student image uploaded successfully',
+      data: {
+        student,
+        uploadDetails: uploadResult
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading student image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload student image',
+      error: error.message
+    });
+  }
+});
+
+export const deleteStudentImage = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+
+  const student = await Student.findByStudentId(studentId);
+  if (!student) {
+    return res.status(404).json({
+      success: false,
+      message: 'Student not found'
+    });
+  }
+
+  if (!student.imageUrl) {
+    return res.status(404).json({
+      success: false,
+      message: 'No image found for this student'
+    });
+  }
+
+  try {
+    // Delete image from S3 if it's an S3 URL
+    const urlParts = student.imageUrl.split('/');
+    if (urlParts.length > 3 && student.imageUrl.includes('s3')) {
+      const key = urlParts.slice(3).join('/');
+      await s3Service.deleteFile(key);
+    }
+
+    // Remove image URL from student record
+    student.imageUrl = null;
+    await student.save();
+
+    res.json({
+      success: true,
+      message: 'Student image deleted successfully',
+      data: {
+        student
+      }
+    });
+  } catch (error) {
+    console.error('Error deleting student image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete student image',
+      error: error.message
+    });
+  }
+});
+
+export const bulkUploadStudentImages = asyncHandler(async (req, res) => {
+  const { files } = req;
+
+  if (!files || files.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No files uploaded'
+    });
+  }
+
+  const uploadResults = [];
+  const errors = [];
+
+  for (const file of files) {
+    try {
+      // Extract student ID from filename (assuming format: studentId_name.ext)
+      const studentId = file.originalname.split('_')[0];
+      
+      // Find student by ID
+      const student = await Student.findByStudentId(studentId);
+      
+      if (!student) {
+        errors.push({
+          file: file.originalname,
+          error: `Student with ID ${studentId} not found`
+        });
+        continue;
+      }
+
+      // Delete old image if exists
+      if (student.imageUrl) {
+        const urlParts = student.imageUrl.split('/');
+        if (urlParts.length > 3 && student.imageUrl.includes('s3')) {
+          const key = urlParts.slice(3).join('/');
+          try {
+            await s3Service.deleteFile(key);
+          } catch (error) {
+            console.warn('Failed to delete old image:', error.message);
+          }
+        }
+      }
+
+      // Upload new image
+      const uploadResult = await s3Service.uploadFile(
+        file.buffer,
+        `${studentId}_profile_${file.originalname}`,
+        file.mimetype,
+        'student-profiles'
+      );
+
+      // Update student record
+      student.imageUrl = uploadResult.url;
+      await student.save();
+
+      uploadResults.push({
+        studentId: student.student_id,
+        name: student.name,
+        fileName: file.originalname,
+        imageUrl: uploadResult.url
+      });
+    } catch (error) {
+      errors.push({
+        file: file.originalname,
+        error: error.message
+      });
+    }
+  }
+
+  res.json({
+    success: true,
+    message: `Bulk upload completed. ${uploadResults.length} images uploaded successfully`,
+    data: {
+      successful: uploadResults,
+      errors: errors,
+      totalFiles: files.length,
+      successCount: uploadResults.length,
+      errorCount: errors.length
     }
   });
 });

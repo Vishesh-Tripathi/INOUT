@@ -41,6 +41,60 @@ class ApiService {
     return data;
   }
 
+  // Generic HTTP methods
+  async get(endpoint, options = {}) {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'GET',
+      headers: this.getHeaders(options.includeAuth !== false),
+      ...options
+    });
+
+    return this.handleResponse(response, options.isPublicRoute);
+  }
+
+  async post(endpoint, data = null, options = {}) {
+    const isFormData = data instanceof FormData;
+    const headers = isFormData 
+      ? { Authorization: this.getHeaders().Authorization } // Don't set Content-Type for FormData
+      : this.getHeaders(options.includeAuth !== false);
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: isFormData ? data : (data ? JSON.stringify(data) : null),
+      ...options
+    });
+
+    return this.handleResponse(response, options.isPublicRoute);
+  }
+
+  async put(endpoint, data = null, options = {}) {
+    const isFormData = data instanceof FormData;
+    const headers = isFormData 
+      ? { Authorization: this.getHeaders().Authorization }
+      : this.getHeaders(options.includeAuth !== false);
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'PUT',
+      headers,
+      body: isFormData ? data : (data ? JSON.stringify(data) : null),
+      ...options
+    });
+
+    return this.handleResponse(response, options.isPublicRoute);
+  }
+
+  async delete(endpoint, data = null, options = {}) {
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(options.includeAuth !== false),
+      body: data ? JSON.stringify(data) : null,
+      ...options
+    });
+
+    return this.handleResponse(response, options.isPublicRoute);
+  }
+
   // Token management
   setToken(token) {
     this.token = token;

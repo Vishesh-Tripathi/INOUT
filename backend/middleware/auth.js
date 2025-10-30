@@ -5,7 +5,12 @@ export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+  console.log('=== Authentication Debug ===');
+  console.log('Auth header:', authHeader);
+  console.log('Extracted token:', token ? `${token.substring(0, 20)}...` : 'No token');
+
   if (!token) {
+    console.log('No token provided');
     return res.status(401).json({ 
       success: false, 
       message: 'Access token required' 
@@ -14,15 +19,18 @@ export const authenticateToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Token decoded successfully, user ID:', decoded.id);
     const user = await User.findById(decoded.id);
     
     if (!user) {
+      console.log('User not found for token');
       return res.status(401).json({ 
         success: false, 
         message: 'Invalid token - user not found' 
       });
     }
 
+    console.log('Authentication successful for user:', user.username);
     req.user = user;
     next();
   } catch (error) {

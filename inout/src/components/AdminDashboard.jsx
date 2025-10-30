@@ -275,7 +275,7 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        /* Students Tab */
+    
           {activeTab === 'students' && (
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">

@@ -13,9 +13,19 @@ import { errorHandler, notFound } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.js';
 import studentRoutes from './routes/students.js';
 import logRoutes from './routes/logs.js';
+import uploadRoutes from './routes/upload.js';
 
 // Load environment variables
 dotenv.config();
+
+// Debug environment variables
+console.log('Environment variables loaded:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- PORT:', process.env.PORT);
+console.log('- AWS_S3_BUCKET_NAME:', process.env.AWS_S3_BUCKET_NAME);
+console.log('- AWS_REGION:', process.env.AWS_REGION);
+console.log('- AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID ? 'Set' : 'Not set');
+console.log('- AWS_SECRET_ACCESS_KEY:', process.env.AWS_SECRET_ACCESS_KEY ? 'Set' : 'Not set');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -55,6 +65,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/logs', logRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -66,6 +77,7 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       students: '/api/students',
       logs: '/api/logs',
+      upload: '/api/upload',
       health: '/health'
     }
   });

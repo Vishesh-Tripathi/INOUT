@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 
 const StudentManagement = () => {
-  const { addStudent, addStudents, updateStudent, deleteStudent, students } = useData();
+  const { addStudent, addStudents, updateStudent, deleteStudent, students, loadStudents } = useData();
+  const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('add'); // 'add' or 'manage'
   const [formData, setFormData] = useState({
     studentId: '',
@@ -21,6 +24,9 @@ const StudentManagement = () => {
     semester: '',
     imageUrl: ''
   });
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -32,6 +38,42 @@ const StudentManagement = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Basic file validation
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please select a valid image file (JPEG, PNG, WebP)');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > maxSize) {
+      toast.error('Image size must be less than 5MB');
+      e.target.value = '';
+      return;
+    }
+    
+    setSelectedImage(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    setFormData(prev => ({ ...prev, imageUrl: '' }));
   };
 
   const resetForm = () => {
@@ -49,6 +91,8 @@ const StudentManagement = () => {
       semester: '',
       imageUrl: ''
     });
+    setSelectedImage(null);
+    setImagePreview(null);
     setEditingStudent(null);
   };
 
@@ -67,6 +111,8 @@ const StudentManagement = () => {
       semester: student.semester || '',
       imageUrl: student.imageUrl || ''
     });
+    setImagePreview(student.imageUrl || null);
+    setSelectedImage(null);
     setEditingStudent(student.student_id);
     setActiveTab('add'); // Switch to add tab for editing
   };
@@ -81,9 +127,34 @@ const StudentManagement = () => {
     }
   };
 
+  const handleDeleteStudentImage = async (studentId, studentName, imageUrl) => {
+    if (window.confirm(`Are you sure you want to delete the profile image for ${studentName}?`)) {
+      try {
+        // Update student record to remove image URL - let backend handle S3 deletion
+        const student = students.find(s => s.student_id === studentId);
+        if (student) {
+          await updateStudent(studentId, {
+            ...student,
+            imageUrl: null
+          });
+          toast.success('Student image deleted successfully');
+        }
+      } catch (error) {
+        console.error('Failed to delete student image:', error);
+        toast.error('Failed to delete student image');
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    if (!isAuthenticated || !user) {
+      toast.error('You must be logged in to perform this action');
+      setIsSubmitting(false);
+      return;
+    }
 
     if (!formData.studentId || !formData.name || !formData.department) {
       toast.error('Student ID, Name, and Department are required');
@@ -92,36 +163,74 @@ const StudentManagement = () => {
     }
 
     try {
+      // Create FormData to send both form data and file
+      const formDataToSend = new FormData();
+      
+      // Add form fields
+      formDataToSend.append('student_id', formData.studentId);
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('department', formData.department);
+      if (formData.email) formDataToSend.append('email', formData.email);
+      if (formData.phone) formDataToSend.append('phone', formData.phone);
+      if (formData.address) formDataToSend.append('address', formData.address);
+      if (formData.city) formDataToSend.append('city', formData.city);
+      if (formData.state) formDataToSend.append('state', formData.state);
+      if (formData.pin) formDataToSend.append('pin', formData.pin);
+      if (formData.country) formDataToSend.append('country', formData.country);
+      if (formData.semester) formDataToSend.append('semester', formData.semester);
+      
+      // Add imageUrl if no file is selected but there's an existing URL
+      if (!selectedImage && formData.imageUrl) {
+        formDataToSend.append('imageUrl', formData.imageUrl);
+      }
+      
+      // Add image file if selected - let backend handle the upload
+      if (selectedImage) {
+        setIsUploadingImage(true);
+        formDataToSend.append('image', selectedImage);
+      }
+
       if (editingStudent) {
         // Update existing student
-        await updateStudent(editingStudent, {
-          name: formData.name,
-          department: formData.department,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          state: formData.state,
-          pin: formData.pin,
-          country: formData.country,
-          semester: formData.semester ? parseInt(formData.semester) : null,
-          imageUrl: formData.imageUrl
-        });
-        resetForm();
+        const response = await api.put(`/students/${editingStudent}`, formDataToSend);
+        
+        if (response.success) {
+          toast.success('Student updated successfully');
+          
+          // Refresh the students data to show the updated information
+          await loadStudents();
+          resetForm();
+        } else {
+          throw new Error(response.message || 'Failed to update student');
+        }
       } else {
         // Check if student ID already exists
         if (students.find(s => s.student_id === formData.studentId)) {
           toast.error('Student ID already exists');
           setIsSubmitting(false);
+          setIsUploadingImage(false);
           return;
         }
 
-        // Add new student
-        await addStudent(formData);
-        resetForm();
+        // Create new student
+        const response = await api.post('/students', formDataToSend);
+        
+        if (response.success) {
+          toast.success('Student created successfully');
+          
+          // Refresh the students data to show the new student
+          await loadStudents();
+          resetForm();
+        } else {
+          throw new Error(response.message || 'Failed to create student');
+        }
       }
+
+      setIsUploadingImage(false);
     } catch (error) {
-      // Error handling is done in DataContext
+      console.error('Error saving student:', error);
+      toast.error('Failed to save student: ' + error.message);
+      setIsUploadingImage(false);
     }
 
     setIsSubmitting(false);
@@ -318,13 +427,18 @@ const StudentManagement = () => {
               formData={formData}
               setFormData={setFormData}
               handleInputChange={handleInputChange}
+              handleImageChange={handleImageChange}
               handleSubmit={handleSubmit}
               handleFileUpload={handleFileUpload}
               isSubmitting={isSubmitting}
+              isUploadingImage={isUploadingImage}
               editingStudent={editingStudent}
               resetForm={resetForm}
               addStudents={addStudents}
               students={students}
+              selectedImage={selectedImage}
+              imagePreview={imagePreview}
+              removeImage={removeImage}
             />
           )}
 
@@ -339,6 +453,7 @@ const StudentManagement = () => {
               setFilterSemester={setFilterSemester}
               handleEdit={handleEdit}
               handleDelete={handleDelete}
+              handleDeleteStudentImage={handleDeleteStudentImage}
               filteredStudents={filteredStudents}
               departments={departments}
               semesters={semesters}
@@ -354,13 +469,18 @@ const StudentManagement = () => {
 const AddStudentTab = ({ 
   formData, 
   handleInputChange, 
+  handleImageChange,
   handleSubmit, 
   handleFileUpload, 
-  isSubmitting, 
+  isSubmitting,
+  isUploadingImage,
   editingStudent, 
   resetForm,
   addStudents,
-  students
+  students,
+  selectedImage,
+  imagePreview,
+  removeImage
 }) => {
   return (
     <div className="space-y-8">
@@ -559,9 +679,78 @@ const AddStudentTab = ({
             <h4 className="text-md font-medium text-gray-600 mb-3 border-b pb-2">Additional Information</h4>
           </div>
 
-          <div className="lg:col-span-2">
+          {/* Image Upload Section */}
+          <div className="lg:col-span-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Image URL
+              Student Image
+            </label>
+            <div className="mt-1 flex items-center space-x-4">
+              {/* Image Preview */}
+              <div className="flex-shrink-0">
+                {imagePreview ? (
+                  <div className="relative">
+                    <img
+                      className="h-20 w-20 rounded-lg object-cover border-2 border-gray-300"
+                      src={imagePreview}
+                      alt="Preview"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <div className="h-20 w-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Controls */}
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <label htmlFor="image-upload" className="cursor-pointer bg-white text-indigo-600 hover:bg-indigo-50 border border-indigo-600 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                    {imagePreview ? 'Change Image' : 'Upload Image'}
+                  </label>
+                  <input
+                    id="image-upload"
+                    name="image"
+                    type="file"
+                    className="sr-only"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleImageChange}
+                  />
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Supported formats: JPEG, PNG, WebP. Max size: 5MB
+                </p>
+                {selectedImage && (
+                  <p className="text-xs text-green-600 mt-1">
+                    Selected: {selectedImage.name}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Legacy Image URL Input (optional) */}
+          <div className="lg:col-span-3">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Or Image URL (legacy)
             </label>
             <input
               type="url"
@@ -569,27 +758,43 @@ const AddStudentTab = ({
               value={formData.imageUrl}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="Enter image URL (jpg, jpeg, png, gif, webp)"
+              placeholder="Enter image URL (will be overridden by uploaded file)"
+              disabled={!!selectedImage}
             />
+            {selectedImage && (
+              <p className="text-xs text-gray-500 mt-1">
+                This field is disabled when an image file is selected for upload
+              </p>
+            )}
           </div>
 
           <div className="lg:col-span-3 mt-6">
             <div className="flex gap-3">
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                disabled={isSubmitting || isUploadingImage}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2 px-6 rounded-lg transition-colors flex items-center"
               >
-                {isSubmitting 
-                  ? (editingStudent ? 'Updating...' : 'Adding...') 
-                  : (editingStudent ? 'Update Student' : 'Add Student')
-                }
+                {isUploadingImage ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading Image...
+                  </>
+                ) : isSubmitting ? (
+                  editingStudent ? 'Updating...' : 'Adding...'
+                ) : (
+                  editingStudent ? 'Update Student' : 'Add Student'
+                )}
               </button>
               {editingStudent && (
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                  disabled={isSubmitting || isUploadingImage}
+                  className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white font-medium py-2 px-6 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -639,13 +844,249 @@ const AddStudentTab = ({
 
           <div className="mt-4 text-sm text-gray-600">
             <p><strong>Required columns:</strong> studentId, name, department</p>
-            <p><strong>Optional columns:</strong> email, phone, address, city, state, pin, country, semester, imageUrl</p>
+            <p><strong>Optional columns:</strong> email, phone, address, city, state, pin, country, semester</p>
             <p><strong>Note:</strong> Column names are case-insensitive and support variations (e.g., student_id, StudentId)</p>
             <p><strong>Semester:</strong> Must be a number between 1-12</p>
-            <p><strong>ImageUrl:</strong> Must be a valid URL with supported formats (jpg, jpeg, png, gif, webp)</p>
           </div>
         </div>
+
       )}
+        <BulkImageUpload students={students} />
+      </div>
+  
+
+  );
+};
+
+// Bulk Image Upload Component
+const BulkImageUpload = ({ students }) => {
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({});
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setSelectedFiles(files);
+  };
+
+  const handleBulkUpload = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error('Please select files to upload');
+      return;
+    }
+
+    setIsUploading(true);
+    const results = [];
+    const errors = [];
+
+    // Create FormData for bulk upload
+    const formData = new FormData();
+    
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i];
+      const studentId = file.name.split('_')[0]; // Assuming filename format: studentId_name.ext
+
+      try {
+        setUploadProgress(prev => ({
+          ...prev,
+          [file.name]: 'uploading'
+        }));
+
+        // Check if student exists
+        const student = students.find(s => s.student_id === studentId);
+        if (!student) {
+          errors.push({
+            file: file.name,
+            error: `Student with ID ${studentId} not found`
+          });
+          setUploadProgress(prev => ({
+            ...prev,
+            [file.name]: 'error'
+          }));
+          continue;
+        }
+
+        // Add file to FormData with student ID as key
+        formData.append(`${studentId}`, file);
+        
+        results.push({
+          file: file.name,
+          studentId: studentId,
+          studentName: student.name
+        });
+
+        setUploadProgress(prev => ({
+          ...prev,
+          [file.name]: 'ready'
+        }));
+      } catch (error) {
+        errors.push({
+          file: file.name,
+          error: error.message
+        });
+        setUploadProgress(prev => ({
+          ...prev,
+          [file.name]: 'error'
+        }));
+      }
+    }
+
+    // Send all files to backend at once
+    if (results.length > 0) {
+      try {
+        const response = await api.post('/students/bulk-upload-images', formData);
+        
+        if (response.success) {
+          toast.success(`Successfully uploaded ${results.length} images`);
+          
+          // Update progress for successful uploads
+          results.forEach(result => {
+            setUploadProgress(prev => ({
+              ...prev,
+              [result.file]: 'success'
+            }));
+          });
+        } else {
+          throw new Error(response.message || 'Bulk upload failed');
+        }
+      } catch (error) {
+        toast.error('Bulk upload failed: ' + error.message);
+        console.error('Bulk upload error:', error);
+        
+        // Mark all as error
+        results.forEach(result => {
+          setUploadProgress(prev => ({
+            ...prev,
+            [result.file]: 'error'
+          }));
+        });
+      }
+    }
+
+    setIsUploading(false);
+
+    if (errors.length > 0) {
+      toast.error(`${errors.length} files had errors. Check console for details.`);
+      console.error('Upload errors:', errors);
+    }
+
+    // Reset after a delay
+    setTimeout(() => {
+      setSelectedFiles([]);
+      setUploadProgress({});
+    }, 3000);
+  };
+
+  return (
+    <div className="border-t pt-8">
+      <h3 className="text-lg font-semibold text-gray-700 mb-4">Bulk Upload Student Images</h3>
+      <div className="bg-blue-50 rounded-lg p-6">
+        <div className="mb-4">
+          <p className="text-sm text-gray-700 mb-2">
+            <strong>File naming convention:</strong> studentId_name.jpg (e.g., CS001_john_doe.jpg)
+          </p>
+          <p className="text-sm text-gray-600">
+            The system will extract the student ID from the filename before the first underscore.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="bulk-image-upload" className="block text-sm font-medium text-gray-700 mb-2">
+              Select Student Images
+            </label>
+            <input
+              id="bulk-image-upload"
+              type="file"
+              multiple
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+            />
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                Selected Files ({selectedFiles.length})
+              </h4>
+              <div className="max-h-40 overflow-y-auto bg-white rounded border p-3">
+                {selectedFiles.map((file, index) => {
+                  const studentId = file.name.split('_')[0];
+                  const student = students.find(s => s.student_id === studentId);
+                  const status = uploadProgress[file.name];
+
+                  return (
+                    <div key={index} className="flex items-center justify-between py-1 text-sm">
+                      <div className="flex items-center">
+                        <span className="text-gray-700">{file.name}</span>
+                        {!student && (
+                          <span className="ml-2 text-xs text-red-600 bg-red-100 px-2 py-1 rounded">
+                            Student not found
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center">
+                        {status === 'uploading' && (
+                          <div className="flex items-center text-blue-600">
+                            <svg className="animate-spin h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Uploading...
+                          </div>
+                        )}
+                        {status === 'ready' && (
+                          <div className="text-orange-600">
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                          </div>
+                        )}
+                        {status === 'success' && (
+                          <div className="text-green-600">
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                          </div>
+                        )}
+                        {status === 'error' && (
+                          <div className="text-red-600">
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleBulkUpload}
+              disabled={selectedFiles.length === 0 || isUploading}
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              {isUploading ? 'Uploading...' : `Upload ${selectedFiles.length} Images`}
+            </button>
+            <button
+              onClick={() => {
+                setSelectedFiles([]);
+                setUploadProgress({});
+                document.getElementById('bulk-image-upload').value = '';
+              }}
+              disabled={isUploading}
+              className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -661,6 +1102,7 @@ const ManageStudentsTab = ({
   setFilterSemester,
   handleEdit,
   handleDelete,
+  handleDeleteStudentImage,
   filteredStudents,
   departments,
   semesters
@@ -771,19 +1213,28 @@ const ManageStudentsTab = ({
                 </tr>
               ) : (
                 filteredStudents.map((student) => (
-                  <tr key={student.student_id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={student.student_id} className="hover:bg-gray-50 transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         {student.imageUrl ? (
-                          <img
-                            className="h-10 w-10 rounded-full object-cover mr-3"
-                            src={student.imageUrl}
-                            alt={student.name}
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            }}
-                          />
+                          <div className="relative mr-3">
+                            <img
+                              className="h-10 w-10 rounded-full object-cover"
+                              src={student.imageUrl}
+                              alt={student.name}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                            <button
+                              onClick={() => handleDeleteStudentImage(student.student_id, student.name, student.imageUrl)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-colors opacity-0 hover:opacity-100 group-hover:opacity-100"
+                              title="Delete Profile Image"
+                            >
+                              ×
+                            </button>
+                          </div>
                         ) : null}
                         <div className={`h-10 w-10 rounded-full bg-indigo-500 flex items-center justify-center mr-3 ${student.imageUrl ? 'hidden' : ''}`}>
                           <span className="text-sm font-medium text-white">
@@ -819,13 +1270,22 @@ const ManageStudentsTab = ({
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => handleEdit(student)}
                           className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded transition-colors"
                         >
                           Edit
                         </button>
+                        {student.imageUrl && (
+                          <button
+                            onClick={() => handleDeleteStudentImage(student.student_id, student.name, student.imageUrl)}
+                            className="text-orange-600 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-3 py-1 rounded transition-colors"
+                            title="Delete Profile Image"
+                          >
+                            Remove Photo
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDelete(student.student_id, student.name)}
                           className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded transition-colors"

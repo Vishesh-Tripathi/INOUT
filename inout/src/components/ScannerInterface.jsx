@@ -79,8 +79,8 @@ const ScannerInterface = () => {
       // Add new scan to the beginning
       recent.unshift(newScan);
       
-      // Keep only the latest 5 scans
-      recent = recent.slice(0, 5);
+      // Keep only the latest 10 scans for TV display
+      recent = recent.slice(0, 10);
       
       // Save back to localStorage
       localStorage.setItem('recentScans', JSON.stringify(recent));
@@ -150,163 +150,146 @@ const ScannerInterface = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900">
       {/* Hidden Barcode Scanner */}
       <BarcodeScanner onScan={handleScan} />
       
-      {/* Left Sidebar - Recent Scans */}
-      <div className="w-80 bg-white shadow-sm border-r border-gray-200 p-6">
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Recent Scans</h2>
-          <p className="text-sm text-gray-500">Last 5 student activities</p>
-        </div>
+      {/* Top Navigation Header */}
+      
 
-        <div className="space-y-4">
-          {recentScans.length === 0 ? (
-            <div className="text-center py-8">
-              <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              <p className="text-sm text-gray-500">No recent scans</p>
-            </div>
-          ) : (
-            recentScans.map((log, index) => {
-              // Get student data - either from log.student or find by student_id
-              const studentData = log.student || getStudentByBarcode(log.student_id);
-              
-              return (
-                <div key={`${log.student_id}-${log.timestamp}-${index}`} className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
-                  {/* Student Photo/Avatar */}
-                  <div className="flex-shrink-0">
-                    {studentData?.imageUrl ? (
-                      <img
-                        className="w-10 h-10 rounded-full object-cover"
-                        src={studentData.imageUrl}
-                        alt={studentData?.name || 'Student'}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div className={`w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center ${studentData?.imageUrl ? 'hidden' : ''}`}>
-                      <span className="text-sm font-medium text-white">
-                        {studentData?.name?.charAt(0).toUpperCase() || log.student_id?.charAt(0).toUpperCase() || '?'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Student Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {studentData?.name || 'Unknown Student'}
-                    </p>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-gray-500">{log.student_id}</span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        log.action === 'in' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {log.action === 'in' ? 'IN' : 'OUT'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Time */}
-                  <div className="text-xs text-gray-400">
-                    {formatTime(log.timestamp)}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b border-gray-200 px-8 py-6">
-          <div className="flex items-center justify-between">
+      {/* Main Content - Recent Scans Table */}
+      <div className="">
+        <div className="bg-white rounded-2xl shadow-2xl border border-gray-300">
+          {/* Table Header */}
+          <div className="px-12 py-4 border-b border-gray-300 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Student In-Out System</h1>
-              <p className="text-sm text-gray-500 mt-1">
-                {time}
-              </p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Recent Student Activity</h2>
+              <p className="text-xl text-gray-600">Latest check-ins and check-outs</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <div className="text-2xl font-mono font-bold text-gray-900">
-                  {new Date().toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
+            <div className="flex items-center space-x-12 ml-16">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-600">{studentsInside.length}</div>
+                <div className="text-lg text-gray-700">Inside</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">{studentsOutside.length}</div>
+                <div className="text-lg text-gray-700">Outside</div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-4xl font-mono font-bold text-gray-900">
+                {time}
+              </div>
+              <div className="text-lg text-gray-600">
+                {new Date().toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
+            </div>
+            
+          </div>
+
+          {/* Table Content */}
+          <div className="p-12">
+            {recentScans.length === 0 ? (
+              <div className="text-center py-20">
+                <svg className="w-24 h-24 text-gray-400 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <p className="text-2xl text-gray-600 mb-4">No recent activity</p>
+                <p className="text-xl text-gray-500">Waiting for student scans...</p>
+              </div>
+            ) : (
+              <div className="overflow-hidden">
+                {/* Table Headers */}
+                <div className="grid grid-cols-12 gap-8 px-8 py-6 bg-gray-100 rounded-t-xl border-b border-gray-300">
+                  <div className="col-span-2 text-lg font-semibold text-gray-800">Photo</div>
+                  <div className="col-span-4 text-lg font-semibold text-gray-800">Student Details</div>
+                  <div className="col-span-2 text-lg font-semibold text-gray-800">Status</div>
+                  <div className="col-span-2 text-lg font-semibold text-gray-800">Time</div>
+                  <div className="col-span-2 text-lg font-semibold text-gray-800">Date</div>
+                </div>
+
+                {/* Table Rows */}
+                <div className="space-y-4 mt-4">
+                  {recentScans.map((log, index) => {
+                    const studentData = log.student || getStudentByBarcode(log.student_id);
+                    
+                    return (
+                      <div 
+                        key={`${log.student_id}-${log.timestamp}-${index}`} 
+                        className="grid grid-cols-12 gap-8 px-8 py-8 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-300 hover-scale animate-fadeInUp"
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                      >
+                        {/* Student Photo */}
+                        <div className="col-span-2 flex items-center">
+                          {studentData?.imageUrl ? (
+                            <img
+                              className="w-20 h-20 rounded-full object-cover ring-4 ring-gray-300"
+                              src={studentData.imageUrl}
+                              alt={studentData?.name || 'Student'}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center ring-4 ring-gray-300 ${studentData?.imageUrl ? 'hidden' : ''}`}>
+                            <span className="text-2xl font-bold text-white">
+                              {studentData?.name?.charAt(0).toUpperCase() || log.student_id?.charAt(0).toUpperCase() || '?'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Student Details */}
+                        <div className="col-span-4 flex flex-col justify-center">
+                          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+                            {studentData?.name || 'Unknown Student'}
+                          </h3>
+                          <p className="text-lg text-indigo-600 font-medium">{log.student_id}</p>
+                          <p className="text-lg text-gray-600">{studentData?.department || 'N/A'}</p>
+                        </div>
+
+                        {/* Status */}
+                        <div className="col-span-2 flex items-center">
+                          <span className={`inline-flex items-center px-6 py-3 rounded-full text-lg font-bold ${
+                            log.action === 'in' 
+                              ? 'bg-green-100 text-green-800 ring-2 ring-green-200' 
+                              : 'bg-blue-100 text-blue-800 ring-2 ring-blue-200'
+                          }`}>
+                            <svg className={`w-6 h-6 mr-2 ${log.action === 'in' ? 'text-green-600' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {log.action === 'in' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                              )}
+                            </svg>
+                            {log.action === 'in' ? 'CHECK IN' : 'CHECK OUT'}
+                          </span>
+                        </div>
+
+                        {/* Time */}
+                        <div className="col-span-2 flex items-center">
+                          <div className="text-2xl font-mono font-bold text-gray-900">
+                            {formatTime(log.timestamp)}
+                          </div>
+                        </div>
+
+                        {/* Date */}
+                        <div className="col-span-2 flex items-center">
+                          <div className="text-lg text-gray-600">
+                            {formatDate(log.timestamp)}
+                          </div>
+                        </div>
+                      </div>
+                    );
                   })}
                 </div>
               </div>
-              <button
-                onClick={() => navigate('/login')}
-                className="inline-flex items-center px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                Admin
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="px-8 py-6">
-          <div className="grid grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Students Inside</p>
-                  <p className="text-3xl font-bold text-gray-900">{studentsInside.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Students Outside</p>
-                  <p className="text-3xl font-bold text-gray-900">{studentsOutside.length}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Scanner Area */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
-            <div className="text-center max-w-md mx-auto">
-              <div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v3a1 1 0 001 1zm12 0h2a1 1 0 001-1V4a1 1 0 00-1-1h-2a1 1 0 00-1 1v3a1 1 0 001 1zM5 20h2a1 1 0 001-1v-3a1 1 0 00-1-1H5a1 1 0 00-1 1v3a1 1 0 001 1z" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Ready to Scan</h2>
-              <p className="text-gray-600 mb-4">
-                Point your barcode scanner at a student ID to track entry and exit
-              </p>
-              <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-                System Active
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

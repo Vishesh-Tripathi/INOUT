@@ -1,0 +1,47 @@
+/* TV Display Optimized Styles */
+.bg-gray-750 {
+  background-color: rgb(55, 65, 81);
+}
+
+/* Smooth animations for TV display */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Large screen optimizations */
+@media (min-width: 1920px) {
+  .tv-text-xl { font-size: 1.5rem; }
+  .tv-text-2xl { font-size: 2rem; }
+  .tv-text-3xl { font-size: 2.5rem; }
+  .tv-text-4xl { font-size: 3rem; }
+}
+
+/* Glow effect for status badges */
+.status-glow-green {
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+}
+
+.status-glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+/* Enhanced hover effects */
+.hover-scale {
+  transition: all 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}

@@ -150,7 +150,7 @@ const ScannerInterface = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900">
+    <div className="min-h-screen bg-white text-gray-900">
       {/* Hidden Barcode Scanner */}
       <BarcodeScanner onScan={handleScan} />
       

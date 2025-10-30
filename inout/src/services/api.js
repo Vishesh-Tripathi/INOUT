@@ -161,6 +161,16 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async updateProfile(currentPassword, newUsername, newPassword) {
+    const response = await fetch(`${this.baseURL}/auth/profile`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ currentPassword, newUsername, newPassword }),
+    });
+
+    return this.handleResponse(response);
+  }
+
   async logout() {
     try {
       await fetch(`${this.baseURL}/auth/logout`, {

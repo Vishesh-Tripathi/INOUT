@@ -159,7 +159,7 @@ const ScannerInterface = () => {
 
       {/* Main Content - Recent Scans Table */}
       <div className="">
-        <div className="bg-white rounded-2xl shadow-2xl border border-gray-300">
+        <div className="bg-white rounded-2xl  ">
           {/* Table Header */}
           <div className="px-12 py-4 border-b border-gray-300 flex items-center justify-between">
             <div>

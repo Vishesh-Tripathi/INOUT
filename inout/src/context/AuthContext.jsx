@@ -108,6 +108,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateProfile = async (currentPassword, newUsername, newPassword) => {
+    try {
+      const response = await apiService.updateProfile(currentPassword, newUsername, newPassword);
+      
+      if (response.success) {
+        // Update user data if username was changed
+        if (response.data && response.data.user) {
+          setUser(response.data.user);
+        }
+        toast.success(response.message || 'Profile updated successfully!');
+        return { success: true };
+      }
+      
+      return { success: false, message: response.message };
+    } catch (error) {
+      console.error('Profile update error:', error);
+      const message = error.message || 'Failed to update profile.';
+      toast.error(message);
+      return { success: false, message };
+    }
+  };
+
   const logout = async () => {
     try {
       await apiService.logout();
@@ -127,6 +149,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     changePassword,
+    updateProfile,
     loading
   };
 

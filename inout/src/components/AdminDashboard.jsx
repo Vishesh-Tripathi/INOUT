@@ -4,13 +4,21 @@ import { useAuth } from '../context/AuthContext';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
+import apiService from '../services/api';
 
 const AdminDashboard = () => {
   const { students, logs, getStudentsInside, getStudentsOutside, clearAllData } = useData();
-  const { logout } = useAuth();
+  const { logout, updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [dateFilter, setDateFilter] = useState('');
   const [studentIdFilter, setStudentIdFilter] = useState('');
+
+  // State for username and password update
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const studentsInside = getStudentsInside();
   const studentsOutside = getStudentsOutside();
@@ -100,6 +108,55 @@ const AdminDashboard = () => {
     if (window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
       clearAllData();
       toast.success('All data cleared successfully');
+    }
+  };
+
+  const handleUpdateCredentials = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+
+    try {
+      // Validation
+      if (!currentPassword) {
+        toast.error('Please enter your current password');
+        return;
+      }
+
+      if (newPassword && newPassword !== confirmPassword) {
+        toast.error('New passwords do not match');
+        return;
+      }
+
+      if (newPassword && newPassword.length < 6) {
+        toast.error('New password must be at least 6 characters long');
+        return;
+      }
+
+      // Only proceed if there's something to update
+      if (!newUsername && !newPassword) {
+        toast.error('Please provide a new username or password to update');
+        return;
+      }
+
+      // Call the updateProfile method from AuthContext
+      const result = await updateProfile(
+        currentPassword,
+        newUsername || undefined,
+        newPassword || undefined
+      );
+
+      if (result.success) {
+        // Clear form
+        setCurrentPassword('');
+        setNewUsername('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (error) {
+      console.error('Error updating credentials:', error);
+      toast.error('Failed to update credentials');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -440,11 +497,115 @@ const AdminDashboard = () => {
 
         {/* Settings Tab */}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-6">Settings</h3>
-            <div className="space-y-6">
+          <div className="space-y-6">
+            {/* Account Settings */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-6">Account Settings</h3>
+              <form onSubmit={handleUpdateCredentials} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Current Password <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter current password"
+                      required
+                    />
+                  </div>
+                  <div></div> {/* Empty div for grid spacing */}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      New Username (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Leave blank to keep current username"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      New Password (optional)
+                    </label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Leave blank to keep current password"
+                      minLength="6"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Confirm new password"
+                      disabled={!newPassword}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-start">
+                  <button
+                    type="submit"
+                    disabled={isUpdating || !currentPassword}
+                    className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-medium py-2 px-6 rounded-lg transition-colors flex items-center"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Updating...
+                      </>
+                    ) : (
+                      'Update Credentials'
+                    )}
+                  </button>
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="ml-3">
+                      <h4 className="text-sm font-medium text-blue-800">Security Tips</h4>
+                      <div className="mt-2 text-sm text-blue-700">
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Use a strong password with at least 6 characters</li>
+                          <li>Include a mix of letters, numbers, and special characters</li>
+                          <li>Don't use the same password for multiple accounts</li>
+                          <li>Keep your credentials secure and don't share them</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-6">Danger Zone</h3>
               <div className="border border-red-200 rounded-lg p-4">
-                <h4 className="text-md font-semibold text-red-800 mb-2">Danger Zone</h4>
+                <h4 className="text-md font-semibold text-red-800 mb-2">Clear All Data</h4>
                 <p className="text-sm text-red-600 mb-4">
                   This action will permanently delete all student data and activity logs. This cannot be undone.
                 </p>

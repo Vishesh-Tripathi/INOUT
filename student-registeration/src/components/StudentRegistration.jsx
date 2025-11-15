@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import apiService from '../services/api.js';
+import logo from '../assets/logo.png';
 
 const StudentRegistration = () => {
   const [formData, setFormData] = useState({
@@ -173,22 +174,35 @@ const StudentRegistration = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header with Navigation */}
-        <div className="mb-6">
-         
-        </div>
-
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-8 py-6">
-            <h1 className="text-3xl font-bold text-white">Student Registration</h1>
-            <p className="text-indigo-100 mt-2">Fill in your details to register for the system</p>
+    <div className="min-h-screen bg-white text-gray-900">
+      <div className="max-w-full mx-auto">
+        
+        <div className="bg-white">
+          {/* College Header */}
+          <div className="px-12 py-4 border-b border-gray-300 flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <img 
+                src={logo} 
+                alt="College Logo" 
+                className="w-28 h-20 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Sibsagar Commerce College, Assam</h1>
+                <p className="text-xl text-gray-600">Student Registration Portal</p>
+              </div>
+            </div>
+           
           </div>
 
-          {/* Form */}
-          <div className="p-8">
+          {/* Registration Form */}
+          <div className="p-12">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden max-w-4xl mx-auto">
+              
+              {/* Form Content */}
+              <div className="p-8">
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Basic Information */}
               <div className="lg:col-span-3">
@@ -479,9 +493,11 @@ const StudentRegistration = () => {
                 </div>
               </div>
             </form>
+            </div>
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };

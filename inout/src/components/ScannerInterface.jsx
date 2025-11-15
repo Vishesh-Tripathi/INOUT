@@ -202,14 +202,7 @@ const ScannerInterface = () => {
                     day: 'numeric'
                   })}
                   </div>
-                  <div className="mt-4">
-                    <button
-                      onClick={() => window.open('http://localhost:5173', '_blank')}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      New Student Registration
-                    </button>
-                  </div>
+                  
                   
                 </div>
                 

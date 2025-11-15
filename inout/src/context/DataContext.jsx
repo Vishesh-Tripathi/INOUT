@@ -25,7 +25,20 @@ export const DataProvider = ({ children }) => {
       loadInitialData();
     }, 100);
 
-    return () => clearTimeout(timer);
+    // Listen for localStorage changes to sync across tabs/pages
+    const handleStorageChange = (e) => {
+      if (e.key === 'data_sync_trigger') {
+        console.log('Data sync trigger detected, refreshing data...');
+        loadInitialData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const loadInitialData = async () => {
@@ -48,6 +61,13 @@ export const DataProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Broadcast data change to other tabs/pages
+  const broadcastDataChange = () => {
+    // Use timestamp to ensure the event always triggers
+    localStorage.setItem('data_sync_trigger', Date.now().toString());
+    localStorage.removeItem('data_sync_trigger');
   };
 
   const loadStudents = async () => {
@@ -182,6 +202,9 @@ export const DataProvider = ({ children }) => {
         // Add log entry to logs state
         setLogs(prev => [logEntry, ...prev]);
 
+        // Broadcast change to other tabs/pages
+        broadcastDataChange();
+
         const actionText = logEntry.action === 'in' ? 'checked in' : 'checked out';
         toast.success(`${updatedStudent.name} ${actionText} successfully`);
 
@@ -300,7 +323,8 @@ export const DataProvider = ({ children }) => {
     clearAllData,
     refreshData,
     loadStudents,
-    loadLogs
+    loadLogs,
+    broadcastDataChange
   };
 
   return (

@@ -8,6 +8,7 @@ import Navigation from "./components/Navigation";
 import ScannerInterface from "./components/ScannerInterface";
 import AdminDashboard from "./components/AdminDashboard";
 import StudentManagement from "./components/StudentManagement";
+import StudentRegistration from "./components/StudentRegistration";
 import Login from "./components/Login";
 
 // Admin layout component that includes authentication and navigation
@@ -46,6 +47,7 @@ function App() {
               </DataProvider>
             } />
             <Route path="/login" element={<Login />} />
+            <Route path="/register-student" element={<StudentRegistration />} />
             
             {/* Protected admin routes */}
             <Route path="/dashboard" element={

@@ -4,7 +4,18 @@ import s3Service from '../services/s3Service.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 export const getAllStudents = asyncHandler(async (req, res) => {
-  const students = await Student.find({}).sort({ createdAt: -1 });
+  // For public scanner access, only return verified students
+  // For admin access (with auth token), return all students
+  const isPublicAccess = !req.user;
+  
+  let students;
+  if (isPublicAccess) {
+    // Public access: only verified students
+    students = await Student.find({ isVerified: true }).sort({ createdAt: -1 });
+  } else {
+    // Admin access: all students
+    students = await Student.find({}).sort({ createdAt: -1 });
+  }
   
   res.json({
     success: true,
@@ -109,7 +120,11 @@ export const createStudent = asyncHandler(async (req, res) => {
     pin,
     country,
     semester,
-    imageUrl
+    imageUrl,
+    isVerified: true, // Admin-created students are auto-verified
+    isRegisteredByAdmin: true,
+    verifiedAt: new Date(),
+    verifiedBy: req.user?.username || 'admin'
   });
 
   res.status(201).json({
@@ -345,6 +360,20 @@ export const toggleStudentStatus = asyncHandler(async (req, res) => {
     });
   }
 
+  // Check if student is verified
+  if (!student.isVerified) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Your registration is pending admin verification.',
+      requiresVerification: true,
+      studentData: {
+        name: student.name,
+        student_id: student.student_id,
+        department: student.department
+      }
+    });
+  }
+
   // Store old status for logging
   const oldStatus = student.status;
   
@@ -551,6 +580,185 @@ export const bulkUploadStudentImages = asyncHandler(async (req, res) => {
       totalFiles: files.length,
       successCount: uploadResults.length,
       errorCount: errors.length
+    }
+  });
+});
+
+// Student self-registration endpoint (public)
+export const registerStudent = asyncHandler(async (req, res) => {
+  const { 
+    student_id, 
+    name, 
+    department, 
+    email, 
+    phone, 
+    address, 
+    city, 
+    state, 
+    pin, 
+    country, 
+    semester
+  } = req.body;
+
+  // Validate required fields
+  if (!student_id || !name || !department) {
+    return res.status(400).json({
+      success: false,
+      message: 'Student ID, name, and department are required'
+    });
+  }
+
+  // Check if student already exists
+  const existingStudent = await Student.findByStudentId(student_id);
+  if (existingStudent) {
+    return res.status(409).json({
+      success: false,
+      message: 'Student with this ID already exists'
+    });
+  }
+
+  let imageUrl = req.body.imageUrl || null;
+  
+  // Handle image upload if file is provided
+  if (req.file) {
+    try {
+      const uploadResult = await s3Service.uploadFile(
+        req.file.buffer,
+        `${student_id}_self_profile_${req.file.originalname}`,
+        req.file.mimetype,
+        'student-self-registrations'
+      );
+      imageUrl = uploadResult.url;
+    } catch (error) {
+      console.error('Error uploading student self-registration image:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload student image',
+        error: error.message
+      });
+    }
+  }
+
+  const student = await Student.create({
+    student_id,
+    name,
+    department,
+    email,
+    phone,
+    address,
+    city,
+    state,
+    pin,
+    country,
+    semester,
+    imageUrl,
+    isVerified: false, // Self-registered students need verification
+    isRegisteredByAdmin: false,
+    verifiedAt: null,
+    verifiedBy: null
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Student registration submitted successfully. Your registration is pending verification by admin.',
+    data: {
+      student: {
+        student_id: student.student_id,
+        name: student.name,
+        department: student.department,
+        isVerified: student.isVerified
+      }
+    }
+  });
+});
+
+// Get students pending verification (admin only)
+export const getPendingVerifications = asyncHandler(async (req, res) => {
+  const pendingStudents = await Student.getPendingVerifications();
+  
+  res.json({
+    success: true,
+    data: {
+      students: pendingStudents,
+      count: pendingStudents.length
+    }
+  });
+});
+
+// Approve student registration (admin only)
+export const approveStudent = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+  const approvedBy = req.user?.username || 'admin';
+
+  try {
+    const student = await Student.approveStudent(studentId, approvedBy);
+    
+    res.json({
+      success: true,
+      message: 'Student approved successfully',
+      data: {
+        student
+      }
+    });
+  } catch (error) {
+    if (error.message === 'Student not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+    throw error;
+  }
+});
+
+// Reject student registration (admin only)
+export const rejectStudent = asyncHandler(async (req, res) => {
+  const { studentId } = req.params;
+  const { rejectionReason } = req.body;
+
+  if (!rejectionReason) {
+    return res.status(400).json({
+      success: false,
+      message: 'Rejection reason is required'
+    });
+  }
+
+  try {
+    const student = await Student.rejectStudent(studentId, rejectionReason);
+    
+    res.json({
+      success: true,
+      message: 'Student registration rejected',
+      data: {
+        student
+      }
+    });
+  } catch (error) {
+    if (error.message === 'Student not found') {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+    throw error;
+  }
+});
+
+// Get verification statistics (admin only)
+export const getVerificationStats = asyncHandler(async (req, res) => {
+  const [pending, verified, rejected] = await Promise.all([
+    Student.getPendingVerifications(),
+    Student.getVerifiedStudents(),
+    Student.getRejectedStudents()
+  ]);
+
+  res.json({
+    success: true,
+    data: {
+      pending: pending.length,
+      verified: verified.length,
+      rejected: rejected.length,
+      total: pending.length + verified.length + rejected.length
     }
   });
 });

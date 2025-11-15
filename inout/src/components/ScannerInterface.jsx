@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import BarcodeScanner from '../Component/BarcodeScanner';
+import apiService from '../services/api';
 import toast from 'react-hot-toast';
+import logo from '../assets/logo.png';
 
 const ScannerInterface = () => {
   const navigate = useNavigate();
@@ -11,12 +13,11 @@ const ScannerInterface = () => {
     getStudentsInside, 
     getStudentsOutside, 
     getStudentByBarcode,
-    logs 
+    logs,
+    students // Add students to track changes
   } = useData();
   
   const [recentScans, setRecentScans] = useState([]);
-  const [studentsInside, setStudentsInside] = useState([]);
-  const [studentsOutside, setStudentsOutside] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [popupData, setPopupData] = useState(null);
   const [time, setTime] = useState(
@@ -41,61 +42,65 @@ const ScannerInterface = () => {
   }, []);
 
   useEffect(() => {
-    // Update counters
-    setStudentsInside(getStudentsInside());
-    setStudentsOutside(getStudentsOutside());
-    
-    // Load recent scans from dedicated localStorage key
-    loadRecentScans();
-  }, [getStudentsInside, getStudentsOutside]);
+    // Load recent activities from MongoDB on mount
+    loadRecentActivities();
+  }, []);
 
-  // Load recent scans from localStorage
-  const loadRecentScans = () => {
+  // Load recent activities from MongoDB
+  const loadRecentActivities = async () => {
     try {
+      const response = await apiService.getRecentActivities(10);
+      if (response.success) {
+        setRecentScans(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading recent activities:', error);
+      // Fallback to localStorage if API fails
       const storedRecentScans = localStorage.getItem('recentScans');
       if (storedRecentScans) {
         const parsed = JSON.parse(storedRecentScans);
         setRecentScans(parsed);
       }
-    } catch (error) {
-      console.error('Error loading recent scans:', error);
     }
   };
 
-  // Save a new scan to recent scans
-  const addToRecentScans = (student, action) => {
-    const newScan = {
-      student_id: student.student_id,
-      student: student,
-      action: action,
-      timestamp: new Date().toISOString()
-    };
-
+  // Save a new activity to MongoDB
+  const addToRecentActivities = async (student, action) => {
     try {
-      // Get existing recent scans
-      const storedRecentScans = localStorage.getItem('recentScans');
-      let recent = storedRecentScans ? JSON.parse(storedRecentScans) : [];
-      
-      // Add new scan to the beginning
-      recent.unshift(newScan);
-      
-      // Keep only the latest 10 scans for TV display
-      recent = recent.slice(0, 10);
-      
-      // Save back to localStorage
-      localStorage.setItem('recentScans', JSON.stringify(recent));
-      
-      // Update state
-      setRecentScans(recent);
+      // Save to MongoDB
+      await apiService.addActivity(student.student_id, student, action);
+      // Refresh the activities list
+      await loadRecentActivities();
     } catch (error) {
-      console.error('Error saving recent scan:', error);
+      console.error('Error saving activity to database:', error);
+      // Fallback to localStorage
+      const newScan = {
+        student_id: student.student_id,
+        student: student,
+        action: action,
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        const storedRecentScans = localStorage.getItem('recentScans');
+        let recent = storedRecentScans ? JSON.parse(storedRecentScans) : [];
+        recent.unshift(newScan);
+        recent = recent.slice(0, 10);
+        localStorage.setItem('recentScans', JSON.stringify(recent));
+        setRecentScans(recent);
+      } catch (localError) {
+        console.error('Error saving to localStorage:', localError);
+      }
     }
   };
 
   const handleScan = async (scannedData) => {
     console.log('Scanned:', scannedData);
+    console.log('Current students:', students);
+    console.log('Students length:', students.length);
     
     const student = getStudentByBarcode(scannedData);
+    console.log('Found student:', student);
     
     if (!student) {
       toast.error(`Student with ID ${scannedData} not found`);
@@ -105,11 +110,11 @@ const ScannerInterface = () => {
     try {
       const result = await toggleStudentStatus(scannedData);
       
-      if (result) {
+      if (result && !result.requiresVerification) {
         const { student: updatedStudent, logEntry } = result;
         
-        // Add to recent scans
-        addToRecentScans(updatedStudent, logEntry.action);
+        // Add to recent activities in MongoDB
+        await addToRecentActivities(updatedStudent, logEntry.action);
         
         // Show popup with student details
         setPopupData({
@@ -125,15 +130,16 @@ const ScannerInterface = () => {
           setPopupData(null);
         }, 500);
 
-        // Update counters and recent scans
-        setStudentsInside(getStudentsInside());
-        setStudentsOutside(getStudentsOutside());
+        // Note: counters will update automatically via useEffect
+      } else if (result && result.requiresVerification) {
+        // Handle verification required case
+        console.log('Student requires verification:', result.error);
+        // The toast message is already shown by the DataContext
       }
     } catch (error) {
       console.error('Scan error:', error);
     }
   };
-  console.log(studentsInside)
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -154,45 +160,62 @@ const ScannerInterface = () => {
       {/* Hidden Barcode Scanner */}
       <BarcodeScanner onScan={handleScan} />
       
-      {/* Top Navigation Header */}
-      
-
+     
       {/* Main Content - Recent Scans Table */}
       <div className="">
         <div className="bg-white rounded-2xl  ">
           {/* Table Header */}
-          <div className="px-12 py-4 border-b border-gray-300 flex items-center justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Recent Student Activity</h2>
-              <p className="text-xl text-gray-600">Latest check-ins and check-outs</p>
-            </div>
-            <div className="flex items-center space-x-12 ml-16">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600">{studentsInside.length}</div>
-                <div className="text-lg text-gray-700">Inside</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{studentsOutside.length}</div>
-                <div className="text-lg text-gray-700">Outside</div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-4xl font-mono font-bold text-gray-900">
-                {time}
-              </div>
-              <div className="text-lg text-gray-600">
-                {new Date().toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </div>
-            </div>
-            
-          </div>
+                <div className="px-12 py-4 border-b border-gray-300 flex items-center justify-between">
+                <div className="flex items-center space-x-6">
+                  <img 
+                  src={logo} 
+                  alt="College Logo" 
+                  className="w-28 h-20 object-contain"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                  />
+                  <div>
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Sibsagar Commerce College, Assam</h2>
+                  <p className="text-xl text-gray-600">Latest check-ins and check-outs</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-12 ml-16">
+                  <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600">{getStudentsInside().length}</div>
+                  <div className="text-lg text-gray-700">Inside</div>
+                  </div>
+                  <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600">{getStudentsOutside().length}</div>
+                  <div className="text-lg text-gray-700">Outside</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-4xl font-mono font-bold text-gray-900">
+                  {time}
+                  </div>
+                  <div className="text-lg text-gray-600">
+                  {new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={() => window.open('http://localhost:5173', '_blank')}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      New Student Registration
+                    </button>
+                  </div>
+                  
+                </div>
+                
+                </div>
 
-          {/* Table Content */}
+                {/* Table Content */}
           <div className="p-12">
             {recentScans.length === 0 ? (
               <div className="text-center py-20">

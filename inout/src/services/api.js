@@ -185,7 +185,7 @@ class ApiService {
   // Students API methods
   async getAllStudents() {
     const response = await fetch(`${this.baseURL}/students`, {
-      headers: this.getHeaders(),
+      headers: this.getHeaders(false), // No auth required for public access
     });
 
     return this.handleResponse(response, true); // Mark as public route
@@ -269,7 +269,7 @@ class ApiService {
   async toggleStudentStatus(studentId) {
     const response = await fetch(`${this.baseURL}/students/${studentId}/toggle`, {
       method: 'PATCH',
-      headers: this.getHeaders(),
+      headers: this.getHeaders(false), // No auth required for public scanner access
     });
 
     return this.handleResponse(response, true); // Mark as public route
@@ -321,6 +321,123 @@ class ApiService {
       method: 'DELETE',
       headers: this.getHeaders(),
       body: JSON.stringify({ days }),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  // Activities API methods
+  async addActivity(studentId, student, action) {
+    const response = await fetch(`${this.baseURL}/activities`, {
+      method: 'POST',
+      headers: this.getHeaders(false), // No auth required for public landing page
+      body: JSON.stringify({
+        student_id: studentId,
+        student,
+        action
+      }),
+    });
+
+    return this.handleResponse(response, true); // Mark as public route
+  }
+
+  async getRecentActivities(limit = 10) {
+    const response = await fetch(`${this.baseURL}/activities/recent?limit=${limit}`, {
+      headers: this.getHeaders(false), // No auth required for public landing page
+    });
+
+    return this.handleResponse(response, true); // Mark as public route
+  }
+
+  async getActivityStats() {
+    const response = await fetch(`${this.baseURL}/activities/stats`, {
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async clearOldActivities(hours = 24) {
+    const response = await fetch(`${this.baseURL}/activities/clear-old`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ hours }),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async clearAllActivities() {
+    const response = await fetch(`${this.baseURL}/activities/clear-all`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async runDailyCleanup() {
+    const response = await fetch(`${this.baseURL}/activities/cleanup/daily`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async runWeeklyCleanup() {
+    const response = await fetch(`${this.baseURL}/activities/cleanup/weekly`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async getSchedulerStatus() {
+    const response = await fetch(`${this.baseURL}/activities/scheduler/status`, {
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  // Student Registration API methods (public)
+  async registerStudent(formData) {
+    return this.post('/students/register', formData, { isPublicRoute: true, includeAuth: false });
+  }
+
+  // Student Verification API methods (admin only)
+  async getPendingVerifications() {
+    const response = await fetch(`${this.baseURL}/students/verification/pending`, {
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async getVerificationStats() {
+    const response = await fetch(`${this.baseURL}/students/verification/stats`, {
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async approveStudent(studentId) {
+    const response = await fetch(`${this.baseURL}/students/verification/${studentId}/approve`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+    });
+
+    return this.handleResponse(response);
+  }
+
+  async rejectStudent(studentId, rejectionReason) {
+    const response = await fetch(`${this.baseURL}/students/verification/${studentId}/reject`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ rejectionReason }),
     });
 
     return this.handleResponse(response);

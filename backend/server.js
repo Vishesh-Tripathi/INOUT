@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 
 // Import models and middleware
 import database from './models/database.js';
+import schedulerService from './services/schedulerService.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 // Import routes
@@ -14,6 +15,7 @@ import authRoutes from './routes/auth.js';
 import studentRoutes from './routes/students.js';
 import logRoutes from './routes/logs.js';
 import uploadRoutes from './routes/upload.js';
+import activityRoutes from './routes/activities.js';
 
 // Load environment variables
 dotenv.config();
@@ -66,6 +68,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/logs', logRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/activities', activityRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -78,6 +81,7 @@ app.get('/', (req, res) => {
       students: '/api/students',
       logs: '/api/logs',
       upload: '/api/upload',
+      activities: '/api/activities',
       health: '/health'
     }
   });
@@ -118,12 +122,14 @@ const startServer = async () => {
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received. Shutting down gracefully...');
+  schedulerService.stopAll();
   await database.close();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT received. Shutting down gracefully...');
+  schedulerService.stopAll();
   await database.close();
   process.exit(0);
 });

@@ -51,11 +51,15 @@ export const DataProvider = ({ children }) => {
   };
 
   const loadStudents = async () => {
+    console.log('Loading students...');
     try {
       const response = await apiService.getAllStudents();
+      console.log('API Response:', response);
       if (response.success) {
-        setStudents(response.data.students || []);
-        console.log('Students loaded:', response.data.students?.length || 0);
+        const studentsData = response.data.students || [];
+        setStudents(studentsData);
+        console.log('Students loaded successfully:', studentsData.length, 'students');
+        console.log('First few students:', studentsData.slice(0, 3));
       } else {
         throw new Error(response.message || 'Failed to load students');
       }
@@ -185,6 +189,13 @@ export const DataProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Failed to toggle student status:', error);
+      
+      // Handle verification error specifically
+      if (error.message.includes('pending admin verification') || error.message.includes('Access denied')) {
+        toast.error('Access denied: Your registration is pending admin verification');
+        return { requiresVerification: true, error: error.message };
+      }
+      
       const message = error.message || 'Failed to update student status';
       toast.error(message);
       throw error;

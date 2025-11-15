@@ -86,6 +86,26 @@ const studentSchema = new mongoose.Schema({
     type: String,
     enum: ['in', 'out'],
     default: 'out'
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  isRegisteredByAdmin: {
+    type: Boolean,
+    default: true
+  },
+  rejectionReason: {
+    type: String,
+    default: null
+  },
+  verifiedAt: {
+    type: Date,
+    default: null
+  },
+  verifiedBy: {
+    type: String,
+    default: null
   }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt
@@ -147,6 +167,46 @@ studentSchema.statics.getStudentsOutside = function() {
   return this.find({ status: 'out' }).sort({ updatedAt: -1 });
 };
 
+studentSchema.statics.getPendingVerifications = function() {
+  return this.find({ isVerified: false, isRegisteredByAdmin: false }).sort({ createdAt: -1 });
+};
+
+studentSchema.statics.getVerifiedStudents = function() {
+  return this.find({ isVerified: true }).sort({ verifiedAt: -1 });
+};
+
+studentSchema.statics.getRejectedStudents = function() {
+  return this.find({ isVerified: false, rejectionReason: { $ne: null } }).sort({ updatedAt: -1 });
+};
+
+studentSchema.statics.approveStudent = async function(studentId, approvedBy) {
+  const student = await this.findOne({ student_id: studentId.toUpperCase() });
+  if (!student) {
+    throw new Error('Student not found');
+  }
+  
+  student.isVerified = true;
+  student.verifiedAt = new Date();
+  student.verifiedBy = approvedBy;
+  student.rejectionReason = null;
+  
+  return await student.save();
+};
+
+studentSchema.statics.rejectStudent = async function(studentId, rejectionReason) {
+  const student = await this.findOne({ student_id: studentId.toUpperCase() });
+  if (!student) {
+    throw new Error('Student not found');
+  }
+  
+  student.isVerified = false;
+  student.rejectionReason = rejectionReason;
+  student.verifiedAt = null;
+  student.verifiedBy = null;
+  
+  return await student.save();
+};
+
 studentSchema.statics.createMany = async function(studentsData) {
   try {
     // Prepare the data
@@ -163,7 +223,11 @@ studentSchema.statics.createMany = async function(studentsData) {
       country: student.country || 'India',
       semester: student.semester || null,
       imageUrl: student.imageUrl || null,
-      status: 'out'
+      status: 'out',
+      isVerified: student.isRegisteredByAdmin !== false, // Auto-verify admin-created students
+      isRegisteredByAdmin: student.isRegisteredByAdmin !== false,
+      verifiedAt: student.isRegisteredByAdmin !== false ? new Date() : null,
+      verifiedBy: student.verifiedBy || null
     }));
 
     const result = await this.insertMany(preparedData, { ordered: false });

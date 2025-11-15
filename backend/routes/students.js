@@ -12,7 +12,12 @@ import {
   toggleStudentStatus,
   uploadStudentImage,
   deleteStudentImage,
-  bulkUploadStudentImages
+  bulkUploadStudentImages,
+  registerStudent,
+  getPendingVerifications,
+  approveStudent,
+  rejectStudent,
+  getVerificationStats
 } from '../controllers/studentController.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { uploadSingle, uploadMultiple, handleMulterError, validateFileUpload } from '../middleware/upload.js';
@@ -25,6 +30,26 @@ router.get('/', getAllStudents);
 
 // Toggle student status (for scanning) - public access for scanner
 router.patch('/:studentId/toggle', toggleStudentStatus);
+
+// Student self-registration (public route)
+router.post('/register', 
+  uploadSingle('image'),
+  handleMulterError,
+  registerStudent
+);
+
+// Protected routes (require authentication)
+// Get verification statistics - admin only
+router.get('/verification/stats', authenticateToken, requireRole(['admin']), getVerificationStats);
+
+// Get students pending verification - admin only
+router.get('/verification/pending', authenticateToken, requireRole(['admin']), getPendingVerifications);
+
+// Approve student registration - admin only
+router.patch('/verification/:studentId/approve', authenticateToken, requireRole(['admin']), approveStudent);
+
+// Reject student registration - admin only
+router.patch('/verification/:studentId/reject', authenticateToken, requireRole(['admin']), rejectStudent);
 
 // Protected routes (require authentication)
 // Get students by status (in/out) - admin only

@@ -21,7 +21,8 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters long']
+    minlength: [6, 'Password must be at least 6 characters long'],
+    select: false // Don't include password in queries by default
   },
   role: {
     type: String,
@@ -29,13 +30,7 @@ const userSchema = new mongoose.Schema({
     default: 'admin'
   }
 }, {
-  timestamps: true, // Automatically adds createdAt and updatedAt
-  toJSON: {
-    transform: function(doc, ret) {
-      delete ret.password; // Remove password from JSON output
-      return ret;
-    }
-  }
+  timestamps: true // Automatically adds createdAt and updatedAt
 });
 
 // Note: username and email indexes are automatically created due to unique: true
@@ -62,7 +57,8 @@ userSchema.statics.findByEmail = function(email) {
 
 userSchema.statics.validateCredentials = async function(username, password) {
   try {
-    const user = await this.findByUsername(username);
+    // Use select('+password') to include the password field
+    const user = await this.findOne({ username: username }).select('+password');
     if (!user) {
       return null;
     }

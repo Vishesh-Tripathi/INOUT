@@ -59,7 +59,7 @@ export const login = asyncHandler(async (req, res) => {
 
   // Validate user credentials
   const user = await User.validateCredentials(username, password);
-  // console.log(user)
+  
   if (!user) {
     return res.status(401).json({
       success: false,
@@ -100,7 +100,8 @@ export const changePassword = asyncHandler(async (req, res) => {
   }
 
   // Verify current password
-  const isValidPassword = await User.validateCredentials(req.user.username, currentPassword);
+  const user = await User.findById(req.user._id).select('+password');
+  const isValidPassword = await user.validatePassword(currentPassword);
   if (!isValidPassword) {
     return res.status(401).json({
       success: false,
@@ -109,7 +110,6 @@ export const changePassword = asyncHandler(async (req, res) => {
   }
 
   // Update password
-  const user = await User.findById(req.user._id);
   user.password = newPassword;
   await user.save();
 
@@ -130,7 +130,8 @@ export const updateProfile = asyncHandler(async (req, res) => {
   }
 
   // Verify current password
-  const isValidPassword = await User.validateCredentials(req.user.username, currentPassword);
+  const user = await User.findById(req.user._id).select('+password');
+  const isValidPassword = await user.validatePassword(currentPassword);
   if (!isValidPassword) {
     return res.status(401).json({
       success: false,
@@ -138,7 +139,6 @@ export const updateProfile = asyncHandler(async (req, res) => {
     });
   }
 
-  const user = await User.findById(req.user._id);
   let updatedFields = [];
 
   // Update username if provided

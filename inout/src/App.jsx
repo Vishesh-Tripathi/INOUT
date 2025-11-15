@@ -47,21 +47,19 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register-student" element={<StudentRegistration />} />
               
+              {/* Public details page for big screen display */}
+              <Route path="/details" element={
+                <DataProvider>
+                  <DetailsView />
+                </DataProvider>
+              } />
+              
               {/* Protected landing page */}
               <Route path="/" element={
                 <ProtectedRoute>
                   <DataProvider>
                     <Navigation />
                     <ScannerInterface />
-                  </DataProvider>
-                </ProtectedRoute>
-              } />
-              
-              {/* Protected details page for big screen display */}
-              <Route path="/details" element={
-                <ProtectedRoute>
-                  <DataProvider>
-                    <DetailsView />
                   </DataProvider>
                 </ProtectedRoute>
               } />

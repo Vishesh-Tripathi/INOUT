@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
+import logo from '../assets/logo.png'
 const Navigation = () => {
   const location = useLocation();
   const { logout } = useAuth();
@@ -15,9 +15,9 @@ const Navigation = () => {
           <div className="flex items-center space-x-8">
             <Link to="/" className="flex items-center space-x-3">
               <img 
-                src="../assets/logo.png" 
+                src={logo}
                 alt="College Logo" 
-                className="h-10 w-10 object-contain"
+                className="h-20 w-20 object-contain"
               />
               <span className="text-xl font-bold text-indigo-600">
                 Sibsagar Commerce College, Assam - Admin
